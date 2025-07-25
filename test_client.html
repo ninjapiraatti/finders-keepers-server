@@ -124,7 +124,7 @@
         connectBtn.addEventListener('click', () => {
             const playerName = document.getElementById('playerName').value || 'TestPlayer';
             
-            socket = new WebSocket('ws://127.0.0.1:8087');
+            socket = new WebSocket('ws://37.27.225.36:8087');
             
             socket.onopen = () => {
                 updateStatus('Connected', 'green');
