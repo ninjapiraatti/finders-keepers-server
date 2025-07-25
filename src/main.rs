@@ -147,9 +147,7 @@ async fn handle_connection(
         if let Some(player_id) = current_player_id {
             let mut state = game_state_clone.lock().await;
             if state.remove(&player_id).is_some() {
-                let _ = tx_clone.send(ServerMessage::PlayerLeft {
-                    player_id
-                });
+                let _ = tx_clone.send(ServerMessage::PlayerLeft { player_id });
             }
         }
     });
