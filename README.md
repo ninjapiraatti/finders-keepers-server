@@ -73,7 +73,7 @@ curl -fsSL https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-serve
 
 ### Production Deployment
 
-The easiest way to deploy is using our Docker-based deployment:
+The easiest way to deploy is using the Docker-based deployment:
 
 **Quick Setup**: See [`deployment/QUICK-SETUP.md`](deployment/QUICK-SETUP.md) for detailed instructions.
 
