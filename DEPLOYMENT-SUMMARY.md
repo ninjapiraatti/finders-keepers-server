@@ -68,7 +68,7 @@ After deployment, users get these simple commands:
 
 ## 🌐 **Connection Info**
 
-Players connect to: `ws://YOUR_SERVER_IP:8080`
+Players connect to: `ws://YOUR_SERVER_IP:8087`
 
 ## ✅ **What We Removed**
 
