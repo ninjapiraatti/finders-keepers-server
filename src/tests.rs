@@ -31,7 +31,10 @@ fn test_client_message_serialization() {
     let deserialized: ClientMessage = serde_json::from_str(&json).unwrap();
 
     match deserialized {
-        ClientMessage::Join { player_id, player_name } => {
+        ClientMessage::Join {
+            player_id,
+            player_name,
+        } => {
             assert_eq!(player_id, "test-player-id");
             assert_eq!(player_name, "TestPlayer");
         }

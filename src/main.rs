@@ -15,8 +15,15 @@ mod tests;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 pub enum ClientMessage {
-    Join { player_id: String, player_name: String },
-    UpdatePosition { x: f32, y: f32, z: f32 },
+    Join {
+        player_id: String,
+        player_name: String,
+    },
+    UpdatePosition {
+        x: f32,
+        y: f32,
+        z: f32,
+    },
     Leave,
 }
 
@@ -110,7 +117,7 @@ async fn handle_connection(
 
     let receive_task = tokio::spawn(async move {
         let mut current_player_id: Option<String> = None;
-        
+
         while let Some(msg) = ws_receiver.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
@@ -141,7 +148,7 @@ async fn handle_connection(
             let mut state = game_state_clone.lock().await;
             if state.remove(&player_id).is_some() {
                 let _ = tx_clone.send(ServerMessage::PlayerLeft {
-                    player_id: player_id,
+                    player_id
                 });
             }
         }
@@ -173,13 +180,16 @@ async fn handle_client_message(
     tx: &broadcast::Sender<ServerMessage>,
 ) -> Option<String> {
     match msg {
-        ClientMessage::Join { player_id, player_name } => {
+        ClientMessage::Join {
+            player_id,
+            player_name,
+        } => {
             // Check if player ID is already in use
             {
                 let state = game_state.lock().await;
                 if state.contains_key(&player_id) {
                     let _ = tx.send(ServerMessage::Error {
-                        message: format!("Player ID {} is already in use", player_id),
+                        message: format!("Player ID {player_id} is already in use"),
                     });
                     return current_player_id;
                 }
