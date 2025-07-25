@@ -64,10 +64,37 @@ else
     echo "✅ Docker Compose is already installed"
 fi
 
-# Setup firewall rules (if ufw is enabled)
+# Setup firewall rules
+echo "🔥 Configuring firewall..."
+
+# Check if UFW is active
 if sudo ufw status | grep -q "Status: active"; then
-    echo "🔥 Configuring firewall..."
+    echo "   � UFW is active - adding UFW rule"
     sudo ufw allow ${HOST_PORT}/tcp comment "Finders Keepers WebSocket Server"
+else
+    echo "   📋 UFW is not active - checking iptables"
+fi
+
+# Also add direct iptables rule for servers without UFW (like Plesk servers)
+# This ensures the port is accessible from external connections
+if sudo iptables -L INPUT -n | grep -q "dpt:${HOST_PORT}.*0\.0\.0\.0/0"; then
+    echo "   ✅ iptables rule for port ${HOST_PORT} already exists"
+else
+    echo "   📋 Adding iptables rule for external access"
+    sudo iptables -I INPUT -p tcp --dport ${HOST_PORT} -j ACCEPT
+    
+    # Try to save iptables rules persistently
+    if command -v netfilter-persistent &> /dev/null; then
+        sudo netfilter-persistent save
+        echo "   💾 iptables rules saved with netfilter-persistent"
+    elif command -v iptables-save &> /dev/null && [ -d /etc/iptables ]; then
+        sudo mkdir -p /etc/iptables
+        sudo iptables-save > /etc/iptables/rules.v4
+        echo "   💾 iptables rules saved to /etc/iptables/rules.v4"
+    else
+        echo "   ⚠️  iptables rule added but may not persist after reboot"
+        echo "   💡 Consider installing iptables-persistent: sudo apt install iptables-persistent"
+    fi
 fi
 
 # Stop and remove existing container if it exists

@@ -27,6 +27,11 @@ This will automatically install Docker, download the server, and have it running
 curl -fsSL https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-server/main/deployment/server-info.sh | bash
 ```
 
+**Debug connections:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-server/main/deployment/debug-connection.sh | bash
+```
+
 ## Features
 
 - Real-time multiplayer support via WebSockets

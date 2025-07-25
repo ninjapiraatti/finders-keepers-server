@@ -8,6 +8,8 @@ services:
     environment:
       - RUST_LOG=info
       - RUST_BACKTRACE=1
+      - BIND_ADDRESS=0.0.0.0
+      - PORT=8087
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "netstat", "-tuln", "|", "grep", ":8087"]
