@@ -49,11 +49,15 @@ curl -fsSL https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-serve
 ### Running the Server Locally
 
 1. Clone this repository
-2. Run the server:
+2. Set up development environment (optional but recommended):
+   ```bash
+   ./setup-hooks.sh  # Install git hooks for security checks
+   ```
+3. Run the server:
    ```bash
    cargo run
    ```
-3. Server will start on `ws://127.0.0.1:8087`
+4. Server will start on `ws://127.0.0.1:8087`
 
 ### Using Docker
 

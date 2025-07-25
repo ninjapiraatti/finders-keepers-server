@@ -1,0 +1,29 @@
+#!/bin/sh
+#
+# Pre-commit hook to run security audit
+#
+
+set -e
+
+echo "🔒 Running security audit..."
+
+# Check if cargo-audit is installed
+if ! command -v cargo-audit &> /dev/null; then
+    echo "⚠️  cargo-audit not found. Installing..."
+    cargo install cargo-audit
+fi
+
+# Run security audit
+if cargo audit; then
+    echo "✅ Security audit passed!"
+else
+    echo "❌ Security audit failed!"
+    echo ""
+    echo "💡 To fix security issues:"
+    echo "   - Review the vulnerabilities listed above"
+    echo "   - Update dependencies with: cargo update"
+    echo "   - Check for alternative crates if needed"
+    echo ""
+    echo "⚠️  Commit blocked due to security vulnerabilities"
+    exit 1
+fi
