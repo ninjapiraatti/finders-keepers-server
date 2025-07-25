@@ -74,7 +74,7 @@ async fn main() {
     // Read bind address and port from environment variables
     let bind_address = std::env::var("BIND_ADDRESS").unwrap_or_else(|_| "0.0.0.0".to_string());
     let port = std::env::var("PORT").unwrap_or_else(|_| "8087".to_string());
-    let addr = format!("{}:{}", bind_address, port);
+    let addr = format!("{bind_address}:{port}");
     let listener = TcpListener::bind(&addr).await.expect("Failed to bind");
     info!("Finders Keepers Server listening on: {}", addr);
 
