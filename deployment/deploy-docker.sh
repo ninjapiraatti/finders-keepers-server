@@ -64,37 +64,10 @@ else
     echo "✅ Docker Compose is already installed"
 fi
 
-# Setup firewall rules
-echo "🔥 Configuring firewall..."
-
-# Check if UFW is active
+# Setup firewall rules (if ufw is enabled)
 if sudo ufw status | grep -q "Status: active"; then
-    echo "   � UFW is active - adding UFW rule"
+    echo "🔥 Configuring firewall..."
     sudo ufw allow ${HOST_PORT}/tcp comment "Finders Keepers WebSocket Server"
-else
-    echo "   📋 UFW is not active - checking iptables"
-fi
-
-# Also add direct iptables rule for servers without UFW (like Plesk servers)
-# This ensures the port is accessible from external connections
-if sudo iptables -L INPUT -n | grep -q "dpt:${HOST_PORT}.*0\.0\.0\.0/0"; then
-    echo "   ✅ iptables rule for port ${HOST_PORT} already exists"
-else
-    echo "   📋 Adding iptables rule for external access"
-    sudo iptables -I INPUT -p tcp --dport ${HOST_PORT} -j ACCEPT
-    
-    # Try to save iptables rules persistently
-    if command -v netfilter-persistent &> /dev/null; then
-        sudo netfilter-persistent save
-        echo "   💾 iptables rules saved with netfilter-persistent"
-    elif command -v iptables-save &> /dev/null && [ -d /etc/iptables ]; then
-        sudo mkdir -p /etc/iptables
-        sudo iptables-save > /etc/iptables/rules.v4
-        echo "   💾 iptables rules saved to /etc/iptables/rules.v4"
-    else
-        echo "   ⚠️  iptables rule added but may not persist after reboot"
-        echo "   💡 Consider installing iptables-persistent: sudo apt install iptables-persistent"
-    fi
 fi
 
 # Stop and remove existing container if it exists
@@ -104,12 +77,12 @@ docker rm ${CONTAINER_NAME} 2>/dev/null || true
 
 # Create application directory for data persistence
 echo "📁 Creating application directory..."
-sudo mkdir -p /opt/finders-keepers/{data,logs,config}
-sudo chown -R $USER:$USER /opt/finders-keepers
+sudo mkdir -p /opt/finders-keepers-server/{data,logs,config}
+sudo chown -R $USER:$USER /opt/finders-keepers-server
 
 # Create docker-compose.yml for easy management
 echo "📝 Creating Docker Compose configuration..."
-cat > /opt/finders-keepers/docker-compose.yml << EOF
+cat > /opt/finders-keepers-server/docker-compose.yml << EOF
 version: '3.8'
 
 services:
@@ -150,7 +123,7 @@ After=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/opt/finders-keepers
+WorkingDirectory=/opt/finders-keepers-server
 ExecStart=/usr/local/bin/docker-compose up -d
 ExecStop=/usr/local/bin/docker-compose down
 TimeoutStartSec=0
@@ -159,85 +132,22 @@ TimeoutStartSec=0
 WantedBy=multi-user.target
 EOF
 
-# Create management scripts
-echo "📝 Creating management scripts..."
+# Copy management scripts
+echo "📝 Installing management scripts..."
 
-# Start script
-cat > /opt/finders-keepers/start.sh << 'EOF'
-#!/bin/bash
-cd /opt/finders-keepers
-docker-compose up -d
-echo "✅ Finders Keepers Server started!"
-echo "🌐 Server is running on http://localhost:8087"
-EOF
+# Download and install management scripts from the repository
+SCRIPT_BASE_URL="https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-server/main/deployment"
 
-# Stop script
-cat > /opt/finders-keepers/stop.sh << 'EOF'
-#!/bin/bash
-cd /opt/finders-keepers
-docker-compose down
-echo "🛑 Finders Keepers Server stopped!"
-EOF
-
-# Update script
-cat > /opt/finders-keepers/update.sh << 'EOF'
-#!/bin/bash
-echo "🔄 Updating Finders Keepers Server..."
-cd /opt/finders-keepers
-docker-compose pull
-docker-compose up -d
-echo "✅ Server updated to latest version!"
-EOF
-
-# Status script
-cat > /opt/finders-keepers/status.sh << 'EOF'
-#!/bin/bash
-cd /opt/finders-keepers
-echo "📊 Finders Keepers Server Status:"
-echo "=================================="
-docker-compose ps
-echo ""
-echo "📋 Container logs (last 20 lines):"
-echo "=================================="
-docker-compose logs --tail=20
-EOF
-
-# Health check script
-cat > /opt/finders-keepers/health-check.sh << 'EOF'
-#!/bin/bash
-echo "🏥 Health Check Results:"
-echo "======================="
-
-# Check if container is running
-if docker ps | grep -q finders-keepers-server; then
-    echo "✅ Container is running"
-else
-    echo "❌ Container is not running"
-    exit 1
-fi
-
-# Check if port is accessible
-if curl -s --connect-timeout 5 http://localhost:8087 &>/dev/null; then
-    echo "✅ Server is responding on port 8087"
-else
-    echo "⚠️  Server may not be fully ready yet (WebSocket only, no HTTP endpoint)"
-fi
-
-# Check container health
-HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' finders-keepers-server 2>/dev/null || echo "unknown")
-echo "🔍 Container health: $HEALTH_STATUS"
-
-if [ "$HEALTH_STATUS" = "healthy" ] || [ "$HEALTH_STATUS" = "unknown" ]; then
-    echo "✅ Health check passed!"
-    exit 0
-else
-    echo "❌ Health check failed!"
-    exit 1
-fi
-EOF
+curl -fsSL "${SCRIPT_BASE_URL}/start.sh" -o /opt/finders-keepers-server/start.sh
+curl -fsSL "${SCRIPT_BASE_URL}/stop.sh" -o /opt/finders-keepers-server/stop.sh
+curl -fsSL "${SCRIPT_BASE_URL}/update.sh" -o /opt/finders-keepers-server/update.sh
+curl -fsSL "${SCRIPT_BASE_URL}/status.sh" -o /opt/finders-keepers-server/status.sh
+curl -fsSL "${SCRIPT_BASE_URL}/health-check.sh" -o /opt/finders-keepers-server/health-check.sh
 
 # Make scripts executable
-chmod +x /opt/finders-keepers/*.sh
+chmod +x /opt/finders-keepers-server/*.sh
+
+echo "✅ Management scripts installed successfully!"
 
 # Enable and start the service
 echo "🔧 Enabling systemd service..."
@@ -246,7 +156,7 @@ sudo systemctl enable finders-keepers-docker
 
 # Pull and start the server
 echo "📥 Downloading and starting Finders Keepers Server..."
-cd /opt/finders-keepers
+cd /opt/finders-keepers-server
 
 # Pull the latest image
 docker-compose pull
@@ -259,17 +169,17 @@ echo "⏳ Waiting for server to start..."
 sleep 10
 
 # Run health check
-if /opt/finders-keepers/health-check.sh; then
+if /opt/finders-keepers-server/health-check.sh; then
     echo ""
     echo "🎉 Setup complete! Finders Keepers Server is running!"
     echo ""
     echo "📋 Management Commands:"
     echo "======================"
-    echo "Start:         /opt/finders-keepers/start.sh"
-    echo "Stop:          /opt/finders-keepers/stop.sh"
-    echo "Status:        /opt/finders-keepers/status.sh"
-    echo "Update:        /opt/finders-keepers/update.sh"
-    echo "Health Check:  /opt/finders-keepers/health-check.sh"
+    echo "Start:         /opt/finders-keepers-server/start.sh"
+    echo "Stop:          /opt/finders-keepers-server/stop.sh"
+    echo "Status:        /opt/finders-keepers-server/status.sh"
+    echo "Update:        /opt/finders-keepers-server/update.sh"
+    echo "Health Check:  /opt/finders-keepers-server/health-check.sh"
     echo ""
     echo "🌐 Server Info:"
     echo "==============="
@@ -278,9 +188,9 @@ if /opt/finders-keepers/health-check.sh; then
     echo ""
     echo "📁 Files:"
     echo "========="
-    echo "Configuration: /opt/finders-keepers/docker-compose.yml"
-    echo "Logs:          /opt/finders-keepers/logs/"
-    echo "Data:          /opt/finders-keepers/data/"
+    echo "Configuration: /opt/finders-keepers-server/docker-compose.yml"
+    echo "Logs:          /opt/finders-keepers-server/logs/"
+    echo "Data:          /opt/finders-keepers-server/data/"
     echo ""
     echo "🔄 Auto-start:"
     echo "=============="
@@ -288,10 +198,10 @@ if /opt/finders-keepers/health-check.sh; then
     echo "To disable: sudo systemctl disable finders-keepers-docker"
     echo ""
     echo "📊 Monitor logs with:"
-    echo "docker-compose -f /opt/finders-keepers/docker-compose.yml logs -f"
+    echo "docker-compose -f /opt/finders-keepers-server/docker-compose.yml logs -f"
 else
     echo ""
     echo "⚠️  Setup completed but the server may not be fully ready yet."
-    echo "Check the status with: /opt/finders-keepers/status.sh"
-    echo "View logs with: docker-compose -f /opt/finders-keepers/docker-compose.yml logs"
+    echo "Check the status with: /opt/finders-keepers-server/status.sh"
+    echo "View logs with: docker-compose -f /opt/finders-keepers-server/docker-compose.yml logs"
 fi
