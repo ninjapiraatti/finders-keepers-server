@@ -226,7 +226,7 @@
         document.addEventListener('keydown', (event) => {
             if (!socket || socket.readyState !== WebSocket.OPEN || !playerId) return;
             
-            const moveSpeed = 10;
+            const moveSpeed = 1;
             let moved = false;
             
             switch (event.key.toLowerCase()) {
