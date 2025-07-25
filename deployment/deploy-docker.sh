@@ -64,37 +64,10 @@ else
     echo "✅ Docker Compose is already installed"
 fi
 
-# Setup firewall rules
-echo "🔥 Configuring firewall..."
-
-# Check if UFW is active
+# Setup firewall rules (if ufw is enabled)
 if sudo ufw status | grep -q "Status: active"; then
-    echo "   � UFW is active - adding UFW rule"
+    echo "🔥 Configuring firewall..."
     sudo ufw allow ${HOST_PORT}/tcp comment "Finders Keepers WebSocket Server"
-else
-    echo "   📋 UFW is not active - checking iptables"
-fi
-
-# Also add direct iptables rule for servers without UFW (like Plesk servers)
-# This ensures the port is accessible from external connections
-if sudo iptables -L INPUT -n | grep -q "dpt:${HOST_PORT}.*0\.0\.0\.0/0"; then
-    echo "   ✅ iptables rule for port ${HOST_PORT} already exists"
-else
-    echo "   📋 Adding iptables rule for external access"
-    sudo iptables -I INPUT -p tcp --dport ${HOST_PORT} -j ACCEPT
-    
-    # Try to save iptables rules persistently
-    if command -v netfilter-persistent &> /dev/null; then
-        sudo netfilter-persistent save
-        echo "   💾 iptables rules saved with netfilter-persistent"
-    elif command -v iptables-save &> /dev/null && [ -d /etc/iptables ]; then
-        sudo mkdir -p /etc/iptables
-        sudo iptables-save > /etc/iptables/rules.v4
-        echo "   💾 iptables rules saved to /etc/iptables/rules.v4"
-    else
-        echo "   ⚠️  iptables rule added but may not persist after reboot"
-        echo "   💡 Consider installing iptables-persistent: sudo apt install iptables-persistent"
-    fi
 fi
 
 # Stop and remove existing container if it exists
@@ -159,85 +132,22 @@ TimeoutStartSec=0
 WantedBy=multi-user.target
 EOF
 
-# Create management scripts
-echo "📝 Creating management scripts..."
+# Copy management scripts
+echo "📝 Installing management scripts..."
 
-# Start script
-cat > /opt/finders-keepers/start.sh << 'EOF'
-#!/bin/bash
-cd /opt/finders-keepers
-docker-compose up -d
-echo "✅ Finders Keepers Server started!"
-echo "🌐 Server is running on http://localhost:8087"
-EOF
+# Download and install management scripts from the repository
+SCRIPT_BASE_URL="https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-server/main/deployment"
 
-# Stop script
-cat > /opt/finders-keepers/stop.sh << 'EOF'
-#!/bin/bash
-cd /opt/finders-keepers
-docker-compose down
-echo "🛑 Finders Keepers Server stopped!"
-EOF
-
-# Update script
-cat > /opt/finders-keepers/update.sh << 'EOF'
-#!/bin/bash
-echo "🔄 Updating Finders Keepers Server..."
-cd /opt/finders-keepers
-docker-compose pull
-docker-compose up -d
-echo "✅ Server updated to latest version!"
-EOF
-
-# Status script
-cat > /opt/finders-keepers/status.sh << 'EOF'
-#!/bin/bash
-cd /opt/finders-keepers
-echo "📊 Finders Keepers Server Status:"
-echo "=================================="
-docker-compose ps
-echo ""
-echo "📋 Container logs (last 20 lines):"
-echo "=================================="
-docker-compose logs --tail=20
-EOF
-
-# Health check script
-cat > /opt/finders-keepers/health-check.sh << 'EOF'
-#!/bin/bash
-echo "🏥 Health Check Results:"
-echo "======================="
-
-# Check if container is running
-if docker ps | grep -q finders-keepers-server; then
-    echo "✅ Container is running"
-else
-    echo "❌ Container is not running"
-    exit 1
-fi
-
-# Check if port is accessible
-if curl -s --connect-timeout 5 http://localhost:8087 &>/dev/null; then
-    echo "✅ Server is responding on port 8087"
-else
-    echo "⚠️  Server may not be fully ready yet (WebSocket only, no HTTP endpoint)"
-fi
-
-# Check container health
-HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' finders-keepers-server 2>/dev/null || echo "unknown")
-echo "🔍 Container health: $HEALTH_STATUS"
-
-if [ "$HEALTH_STATUS" = "healthy" ] || [ "$HEALTH_STATUS" = "unknown" ]; then
-    echo "✅ Health check passed!"
-    exit 0
-else
-    echo "❌ Health check failed!"
-    exit 1
-fi
-EOF
+curl -fsSL "${SCRIPT_BASE_URL}/start.sh" -o /opt/finders-keepers/start.sh
+curl -fsSL "${SCRIPT_BASE_URL}/stop.sh" -o /opt/finders-keepers/stop.sh
+curl -fsSL "${SCRIPT_BASE_URL}/update.sh" -o /opt/finders-keepers/update.sh
+curl -fsSL "${SCRIPT_BASE_URL}/status.sh" -o /opt/finders-keepers/status.sh
+curl -fsSL "${SCRIPT_BASE_URL}/health-check.sh" -o /opt/finders-keepers/health-check.sh
 
 # Make scripts executable
 chmod +x /opt/finders-keepers/*.sh
+
+echo "✅ Management scripts installed successfully!"
 
 # Enable and start the service
 echo "🔧 Enabling systemd service..."
