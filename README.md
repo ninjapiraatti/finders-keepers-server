@@ -1,6 +1,31 @@
 # Finders Keepers Multiplayer Game Server
 
-A WebSocket-based game server built in Rust for handling multiplayer game sessions. Supports real-time player position updates and game state synchronization.
+A WebSocket-based game server built in Rust.
+
+## 🚀 Quick Start for Server Hosting
+
+**Just want to run the server?** Use the one-command setup:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-server/main/deployment/deploy-docker.sh | bash
+```
+
+This will automatically install Docker, download the server, and have it running in minutes!  
+📖 See [`deployment/QUICK-SETUP.md`](deployment/QUICK-SETUP.md) for detailed instructions.
+
+**Server management commands:**
+```bash
+/opt/finders-keepers/start.sh        # Start server
+/opt/finders-keepers/stop.sh         # Stop server  
+/opt/finders-keepers/status.sh       # Check status
+/opt/finders-keepers/update.sh       # Update to latest
+/opt/finders-keepers/health-check.sh # Health check
+```
+
+**Get server info:**
+```bash
+curl -fsSL https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-server/main/deployment/server-info.sh | bash
+```
 
 ## Features
 
@@ -10,17 +35,45 @@ A WebSocket-based game server built in Rust for handling multiplayer game sessio
 - Broadcast messaging to all connected clients
 - Simple JSON-based message protocol
 - Unity-compatible WebSocket interface
+- **Automated Testing** and Security Auditing
+- **Docker Deployment** with auto-updates
+- **One-Command Setup** for any Ubuntu server
 
-## Quick Start
+## Development Setup
 
-### Running the Server
+### Running the Server Locally
 
 1. Clone this repository
 2. Run the server:
    ```bash
    cargo run
    ```
-3. Server will start on `ws://127.0.0.1:8080`
+3. Server will start on `ws://127.0.0.1:8087`
+
+### Using Docker
+
+1. Build and run with Docker Compose:
+   ```bash
+   docker-compose up --build
+   ```
+2. Or build manually:
+   ```bash
+   docker build -t finders-keepers-server .
+   docker run -p 8087:8087 finders-keepers-server
+   ```
+
+### Production Deployment
+
+The easiest way to deploy is using our Docker-based deployment:
+
+**Quick Setup**: See [`deployment/QUICK-SETUP.md`](deployment/QUICK-SETUP.md) for detailed instructions.
+
+**One-Command Deploy**:
+```bash
+curl -fsSL https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-server/main/deployment/deploy-docker.sh | bash
+```
+
+Updates are automatic - just run `/opt/finders-keepers/update.sh` to get the latest version!
 
 ### Testing the Server
 
@@ -29,218 +82,49 @@ Open `test_client.html` in a web browser to test the server with a simple HTML c
 - Use WASD or arrow keys to move around
 - Open multiple browser tabs to test multiple players
 
-## Message Protocol
+## Development
 
-### Client to Server Messages
-
-#### Join Game
-```json
-{
-  "type": "Join",
-  "player_name": "PlayerName"
-}
+### Running Tests
+```bash
+cargo test
 ```
 
-#### Update Position
-```json
-{
-  "type": "UpdatePosition",
-  "x": 100.5,
-  "y": 0.0,
-  "z": 200.3
-}
+### Code Formatting
+```bash
+cargo fmt
 ```
 
-#### Leave Game
-```json
-{
-  "type": "Leave"
-}
+### Linting
+```bash
+cargo clippy
 ```
 
-### Server to Client Messages
-
-#### Game State (sent on join)
-```json
-{
-  "type": "GameState",
-  "players": [
-    {
-      "id": "uuid-string",
-      "name": "PlayerName",
-      "x": 100.5,
-      "y": 0.0,
-      "z": 200.3
-    }
-  ]
-}
+### Security Audit
+```bash
+cargo install cargo-audit
+cargo audit
 ```
 
-#### Player Joined
-```json
-{
-  "type": "PlayerJoined",
-  "player_id": "uuid-string",
-  "player_name": "PlayerName",
-  "x": 0.0,
-  "y": 0.0,
-  "z": 0.0
-}
-```
+## CI Pipeline
 
-#### Player Moved
-```json
-{
-  "type": "PlayerMoved",
-  "player_id": "uuid-string",
-  "x": 100.5,
-  "y": 0.0,
-  "z": 200.3
-}
-```
+The GitHub Actions pipeline includes:
 
-#### Player Left
-```json
-{
-  "type": "PlayerLeft",
-  "player_id": "uuid-string"
-}
-```
+- ✅ **Automated Testing**: Unit tests, formatting, and linting
+- 🔒 **Security Auditing**: Dependency vulnerability scanning
+- 🏗️ **Release Building**: Optimized production builds
+- � **Docker Images**: Multi-platform images pushed to GitHub Container Registry
 
-#### Error
-```json
-{
-  "type": "Error",
-  "message": "Error description"
-}
-```
+### Pipeline Triggers
+- **Pull Requests**: Run tests and security checks
+- **Main Branch**: Full pipeline including Docker image building
+- **Manual**: Can be triggered manually for rebuilds
 
-## Unity Integration
-
-### Setup WebSocket Connection
-
-1. Install a WebSocket library for Unity (e.g., NativeWebSocket or WebSocketSharp)
-2. Connect to the server:
-
-```csharp
-using UnityEngine;
-using NativeWebSocket;
-using System;
-
-public class GameNetworkManager : MonoBehaviour
-{
-    private WebSocket websocket;
-    
-    async void Start()
-    {
-        websocket = new WebSocket("ws://127.0.0.1:8080");
-        
-        websocket.OnOpen += () => {
-            Debug.Log("Connected to server");
-            JoinGame("PlayerName");
-        };
-        
-        websocket.OnMessage += (bytes) => {
-            var message = System.Text.Encoding.UTF8.GetString(bytes);
-            HandleServerMessage(message);
-        };
-        
-        await websocket.Connect();
-    }
-    
-    void Update()
-    {
-        #if !UNITY_WEBGL || UNITY_EDITOR
-        websocket?.DispatchMessageQueue();
-        #endif
-    }
-    
-    private async void JoinGame(string playerName)
-    {
-        var joinMessage = new {
-            type = "Join",
-            player_name = playerName
-        };
-        
-        await websocket.SendText(JsonUtility.ToJson(joinMessage));
-    }
-    
-    public async void SendPositionUpdate(Vector3 position)
-    {
-        var moveMessage = new {
-            type = "UpdatePosition",
-            x = position.x,
-            y = position.y,
-            z = position.z
-        };
-        
-        await websocket.SendText(JsonUtility.ToJson(moveMessage));
-    }
-    
-    private void HandleServerMessage(string message)
-    {
-        // Parse and handle server messages
-        Debug.Log($"Server message: {message}");
-        // Add your game logic here
-    }
-    
-    private async void OnApplicationQuit()
-    {
-        await websocket.Close();
-    }
-}
-```
-
-### Message Classes for Unity
-
-```csharp
-[Serializable]
-public class Player
-{
-    public string id;
-    public string name;
-    public float x;
-    public float y;
-    public float z;
-}
-
-[Serializable]
-public class ServerMessage
-{
-    public string type;
-}
-
-[Serializable]
-public class GameStateMessage : ServerMessage
-{
-    public Player[] players;
-}
-
-[Serializable]
-public class PlayerJoinedMessage : ServerMessage
-{
-    public string player_id;
-    public string player_name;
-    public float x;
-    public float y;
-    public float z;
-}
-
-[Serializable]
-public class PlayerMovedMessage : ServerMessage
-{
-    public string player_id;
-    public float x;
-    public float y;
-    public float z;
-}
-
-[Serializable]
-public class PlayerLeftMessage : ServerMessage
-{
-    public string player_id;
-}
-```
+### How It Works
+1. **Code changes** pushed to main branch
+2. **Tests run** automatically (formatting, linting, unit tests, security audit)
+3. **Docker image** built for multiple platforms (AMD64/ARM64)
+4. **Image pushed** to GitHub Container Registry
+5. **Deployments update** automatically when you run `/opt/finders-keepers/update.sh`
 
 ## Architecture
 
@@ -248,24 +132,3 @@ public class PlayerLeftMessage : ServerMessage
 - **Game State**: Thread-safe HashMap storing player information
 - **Broadcast System**: Efficient message distribution to all connected clients
 - **JSON Protocol**: Simple, human-readable message format
-
-## Next Steps
-
-1. **Authentication**: Add proper player authentication
-2. **Game Rooms**: Support multiple game rooms/lobbies
-3. **Persistence**: Add database integration for player data
-4. **Security**: Input validation and cheat prevention
-5. **Scaling**: Load balancing and horizontal scaling
-6. **Game Logic**: Add game-specific features (items, NPCs, etc.)
-
-## Dependencies
-
-- `tokio` - Async runtime
-- `tokio-tungstenite` - WebSocket support
-- `serde` - JSON serialization
-- `uuid` - Unique player IDs
-- `tracing` - Logging
-
-## License
-
-MIT License

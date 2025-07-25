@@ -1,0 +1,10 @@
+target/
+.git/
+.github/
+.gitignore
+README.md
+deployment/
+test_client.html
+*.md
+.env
+.env.local
