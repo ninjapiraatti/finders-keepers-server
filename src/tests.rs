@@ -23,6 +23,7 @@ fn test_player_serialization() {
 #[test]
 fn test_client_message_serialization() {
     let join_msg = ClientMessage::Join {
+        player_id: "test-player-id".to_string(),
         player_name: "TestPlayer".to_string(),
     };
 
@@ -30,7 +31,8 @@ fn test_client_message_serialization() {
     let deserialized: ClientMessage = serde_json::from_str(&json).unwrap();
 
     match deserialized {
-        ClientMessage::Join { player_name } => {
+        ClientMessage::Join { player_id, player_name } => {
+            assert_eq!(player_id, "test-player-id");
             assert_eq!(player_name, "TestPlayer");
         }
         _ => panic!("Wrong message type"),

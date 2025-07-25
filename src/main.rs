@@ -7,7 +7,6 @@ use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{Mutex, broadcast};
 use tokio_tungstenite::{accept_async, tungstenite::Message};
 use tracing::{error, info};
-use uuid::Uuid;
 
 #[cfg(test)]
 mod tests;
@@ -16,7 +15,7 @@ mod tests;
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(tag = "type")]
 pub enum ClientMessage {
-    Join { player_name: String },
+    Join { player_id: String, player_name: String },
     UpdatePosition { x: f32, y: f32, z: f32 },
     Leave,
 }
@@ -104,21 +103,21 @@ async fn handle_connection(
 
     let (mut ws_sender, mut ws_receiver) = ws_stream.split();
     let mut rx = tx.subscribe();
-    let player_id = Uuid::new_v4().to_string();
 
     // Handle incoming messages from client
     let game_state_clone = game_state.clone();
     let tx_clone = tx.clone();
-    let player_id_clone = player_id.clone();
 
     let receive_task = tokio::spawn(async move {
+        let mut current_player_id: Option<String> = None;
+        
         while let Some(msg) = ws_receiver.next().await {
             match msg {
                 Ok(Message::Text(text)) => {
                     if let Ok(client_msg) = serde_json::from_str::<ClientMessage>(&text) {
-                        handle_client_message(
+                        current_player_id = handle_client_message(
                             client_msg,
-                            &player_id_clone,
+                            current_player_id,
                             &game_state_clone,
                             &tx_clone,
                         )
@@ -138,11 +137,11 @@ async fn handle_connection(
         }
 
         // Clean up player on disconnect
-        {
+        if let Some(player_id) = current_player_id {
             let mut state = game_state_clone.lock().await;
-            if state.remove(&player_id_clone).is_some() {
+            if state.remove(&player_id).is_some() {
                 let _ = tx_clone.send(ServerMessage::PlayerLeft {
-                    player_id: player_id_clone.clone(),
+                    player_id: player_id,
                 });
             }
         }
@@ -169,14 +168,25 @@ async fn handle_connection(
 
 async fn handle_client_message(
     msg: ClientMessage,
-    player_id: &str,
+    current_player_id: Option<String>,
     game_state: &GameState,
     tx: &broadcast::Sender<ServerMessage>,
-) {
+) -> Option<String> {
     match msg {
-        ClientMessage::Join { player_name } => {
+        ClientMessage::Join { player_id, player_name } => {
+            // Check if player ID is already in use
+            {
+                let state = game_state.lock().await;
+                if state.contains_key(&player_id) {
+                    let _ = tx.send(ServerMessage::Error {
+                        message: format!("Player ID {} is already in use", player_id),
+                    });
+                    return current_player_id;
+                }
+            }
+
             let player = Player {
-                id: player_id.to_string(),
+                id: player_id.clone(),
                 name: player_name.clone(),
                 x: 0.0,
                 y: 0.0,
@@ -185,7 +195,7 @@ async fn handle_client_message(
 
             {
                 let mut state = game_state.lock().await;
-                state.insert(player_id.to_string(), player.clone());
+                state.insert(player_id.clone(), player.clone());
             }
 
             // Send current game state to new player
@@ -197,7 +207,7 @@ async fn handle_client_message(
 
             // Notify all clients about new player
             let _ = tx.send(ServerMessage::PlayerJoined {
-                player_id: player_id.to_string(),
+                player_id: player_id.clone(),
                 player_name,
                 x: 0.0,
                 y: 0.0,
@@ -205,36 +215,43 @@ async fn handle_client_message(
             });
 
             info!("Player {} joined with ID: {}", player.name, player_id);
+            Some(player_id)
         }
 
         ClientMessage::UpdatePosition { x, y, z } => {
-            {
-                let mut state = game_state.lock().await;
-                if let Some(player) = state.get_mut(player_id) {
-                    player.x = x;
-                    player.y = y;
-                    player.z = z;
+            if let Some(player_id) = &current_player_id {
+                {
+                    let mut state = game_state.lock().await;
+                    if let Some(player) = state.get_mut(player_id) {
+                        player.x = x;
+                        player.y = y;
+                        player.z = z;
+                    }
                 }
-            }
 
-            // Broadcast position update to all clients
-            let _ = tx.send(ServerMessage::PlayerMoved {
-                player_id: player_id.to_string(),
-                x,
-                y,
-                z,
-            });
+                // Broadcast position update to all clients
+                let _ = tx.send(ServerMessage::PlayerMoved {
+                    player_id: player_id.clone(),
+                    x,
+                    y,
+                    z,
+                });
+            }
+            current_player_id
         }
 
         ClientMessage::Leave => {
-            {
-                let mut state = game_state.lock().await;
-                state.remove(player_id);
-            }
+            if let Some(player_id) = &current_player_id {
+                {
+                    let mut state = game_state.lock().await;
+                    state.remove(player_id);
+                }
 
-            let _ = tx.send(ServerMessage::PlayerLeft {
-                player_id: player_id.to_string(),
-            });
+                let _ = tx.send(ServerMessage::PlayerLeft {
+                    player_id: player_id.clone(),
+                });
+            }
+            None
         }
     }
 }
