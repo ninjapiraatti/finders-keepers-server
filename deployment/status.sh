@@ -1,5 +1,5 @@
 #!/bin/bash
-cd /opt/finders-keepers
+cd /opt/finders-keepers-server
 echo "📊 Finders Keepers Server Status:"
 echo "=================================="
 docker-compose ps

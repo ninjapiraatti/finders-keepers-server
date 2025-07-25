@@ -77,12 +77,12 @@ docker rm ${CONTAINER_NAME} 2>/dev/null || true
 
 # Create application directory for data persistence
 echo "📁 Creating application directory..."
-sudo mkdir -p /opt/finders-keepers/{data,logs,config}
-sudo chown -R $USER:$USER /opt/finders-keepers
+sudo mkdir -p /opt/finders-keepers-server/{data,logs,config}
+sudo chown -R $USER:$USER /opt/finders-keepers-server
 
 # Create docker-compose.yml for easy management
 echo "📝 Creating Docker Compose configuration..."
-cat > /opt/finders-keepers/docker-compose.yml << EOF
+cat > /opt/finders-keepers-server/docker-compose.yml << EOF
 version: '3.8'
 
 services:
@@ -123,7 +123,7 @@ After=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/opt/finders-keepers
+WorkingDirectory=/opt/finders-keepers-server
 ExecStart=/usr/local/bin/docker-compose up -d
 ExecStop=/usr/local/bin/docker-compose down
 TimeoutStartSec=0
@@ -138,14 +138,14 @@ echo "📝 Installing management scripts..."
 # Download and install management scripts from the repository
 SCRIPT_BASE_URL="https://raw.githubusercontent.com/ninjapiraatti/finders-keepers-server/main/deployment"
 
-curl -fsSL "${SCRIPT_BASE_URL}/start.sh" -o /opt/finders-keepers/start.sh
-curl -fsSL "${SCRIPT_BASE_URL}/stop.sh" -o /opt/finders-keepers/stop.sh
-curl -fsSL "${SCRIPT_BASE_URL}/update.sh" -o /opt/finders-keepers/update.sh
-curl -fsSL "${SCRIPT_BASE_URL}/status.sh" -o /opt/finders-keepers/status.sh
-curl -fsSL "${SCRIPT_BASE_URL}/health-check.sh" -o /opt/finders-keepers/health-check.sh
+curl -fsSL "${SCRIPT_BASE_URL}/start.sh" -o /opt/finders-keepers-server/start.sh
+curl -fsSL "${SCRIPT_BASE_URL}/stop.sh" -o /opt/finders-keepers-server/stop.sh
+curl -fsSL "${SCRIPT_BASE_URL}/update.sh" -o /opt/finders-keepers-server/update.sh
+curl -fsSL "${SCRIPT_BASE_URL}/status.sh" -o /opt/finders-keepers-server/status.sh
+curl -fsSL "${SCRIPT_BASE_URL}/health-check.sh" -o /opt/finders-keepers-server/health-check.sh
 
 # Make scripts executable
-chmod +x /opt/finders-keepers/*.sh
+chmod +x /opt/finders-keepers-server/*.sh
 
 echo "✅ Management scripts installed successfully!"
 
@@ -156,7 +156,7 @@ sudo systemctl enable finders-keepers-docker
 
 # Pull and start the server
 echo "📥 Downloading and starting Finders Keepers Server..."
-cd /opt/finders-keepers
+cd /opt/finders-keepers-server
 
 # Pull the latest image
 docker-compose pull
@@ -169,17 +169,17 @@ echo "⏳ Waiting for server to start..."
 sleep 10
 
 # Run health check
-if /opt/finders-keepers/health-check.sh; then
+if /opt/finders-keepers-server/health-check.sh; then
     echo ""
     echo "🎉 Setup complete! Finders Keepers Server is running!"
     echo ""
     echo "📋 Management Commands:"
     echo "======================"
-    echo "Start:         /opt/finders-keepers/start.sh"
-    echo "Stop:          /opt/finders-keepers/stop.sh"
-    echo "Status:        /opt/finders-keepers/status.sh"
-    echo "Update:        /opt/finders-keepers/update.sh"
-    echo "Health Check:  /opt/finders-keepers/health-check.sh"
+    echo "Start:         /opt/finders-keepers-server/start.sh"
+    echo "Stop:          /opt/finders-keepers-server/stop.sh"
+    echo "Status:        /opt/finders-keepers-server/status.sh"
+    echo "Update:        /opt/finders-keepers-server/update.sh"
+    echo "Health Check:  /opt/finders-keepers-server/health-check.sh"
     echo ""
     echo "🌐 Server Info:"
     echo "==============="
@@ -188,9 +188,9 @@ if /opt/finders-keepers/health-check.sh; then
     echo ""
     echo "📁 Files:"
     echo "========="
-    echo "Configuration: /opt/finders-keepers/docker-compose.yml"
-    echo "Logs:          /opt/finders-keepers/logs/"
-    echo "Data:          /opt/finders-keepers/data/"
+    echo "Configuration: /opt/finders-keepers-server/docker-compose.yml"
+    echo "Logs:          /opt/finders-keepers-server/logs/"
+    echo "Data:          /opt/finders-keepers-server/data/"
     echo ""
     echo "🔄 Auto-start:"
     echo "=============="
@@ -198,10 +198,10 @@ if /opt/finders-keepers/health-check.sh; then
     echo "To disable: sudo systemctl disable finders-keepers-docker"
     echo ""
     echo "📊 Monitor logs with:"
-    echo "docker-compose -f /opt/finders-keepers/docker-compose.yml logs -f"
+    echo "docker-compose -f /opt/finders-keepers-server/docker-compose.yml logs -f"
 else
     echo ""
     echo "⚠️  Setup completed but the server may not be fully ready yet."
-    echo "Check the status with: /opt/finders-keepers/status.sh"
-    echo "View logs with: docker-compose -f /opt/finders-keepers/docker-compose.yml logs"
+    echo "Check the status with: /opt/finders-keepers-server/status.sh"
+    echo "View logs with: docker-compose -f /opt/finders-keepers-server/docker-compose.yml logs"
 fi

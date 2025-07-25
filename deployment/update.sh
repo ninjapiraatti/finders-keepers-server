@@ -1,6 +1,6 @@
 #!/bin/bash
 echo "🔄 Updating Finders Keepers Server..."
-cd /opt/finders-keepers
+cd /opt/finders-keepers-server
 
 # Stop the current container
 echo "🛑 Stopping current server..."
